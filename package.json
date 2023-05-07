@@ -1,0 +1,15 @@
+{
+    "name": "upg-app-1",
+    "version": "1.0.0",
+    "description": "Node.js on Docker",
+    "author": "ME ME",
+    "main": "server.js",
+    "scripts": {
+	  "build": "webpack --mode production",
+      "start": "node server.js"
+    },
+    "dependencies": {
+      "express": "^4.16.1"，
+	  "webpack": "^5.36.2"
+    }
+  }
