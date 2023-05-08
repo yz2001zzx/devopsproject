@@ -1,0 +1,61 @@
+pipeline{
+    agent {
+        label 'worker'  // worker to handle the workload
+    }
+    options{
+        buildDiscarder(logRotator(numToKeepStr: '15'))
+        retry(2)
+        timeout(time: 1, unit: 'MINUTES')
+    }
+  
+    environment{
+        REGION="us-east-1"
+        APP_HOST = '10.0.2.225'
+        PEM_FILE_PATH = '/home/ubuntu/myOwnAWS.pem'
+    }
+
+    stages{
+        stage('Checkout'){
+            steps{
+                git branch: 'master', url: 'https://github.com/yz2001zzx/devopsproject.git'
+            }
+        }
+ 
+        stage('Build And Push'){
+            steps{
+                sh '''
+                cd 
+                cd workspace/devops_pipeline/
+                docker build -t 553222892121.dkr.ecr.us-east-1.amazonaws.com/grouproject:v${BUILD_NUMBER} .
+                aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 553222892121.dkr.ecr.us-east-1.amazonaws.com
+                docker push 553222892121.dkr.ecr.us-east-1.amazonaws.com/grouproject:v${BUILD_NUMBER}
+                '''
+            }
+        }
+
+        stage('Deploy to app host'){
+            steps{
+                script {
+                    def remoteCommand = """
+                        aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 553222892121.dkr.ecr.us-east-1.amazonaws.com
+                        docker pull 553222892121.dkr.ecr.us-east-1.amazonaws.com/grouproject:v${BUILD_NUMBER}
+                        if docker ps -a | grep 'testapp'; then
+                            docker stop testapp
+                            docker rm testapp
+                        fi
+                        docker run -d --name testapp -p 8080:8080 553222892121.dkr.ecr.us-east-1.amazonaws.com/grouproject:v${BUILD_NUMBER}
+                    """
+
+                    sh "chmod 600 ${env.PEM_FILE_PATH}"
+                    sh "ssh -i ${env.PEM_FILE_PATH} -o StrictHostKeyChecking=no root@${env.APP_HOST} '${remoteCommand}'"
+                }
+            }
+        }
+    }
+
+    post{
+        always{
+            echo "Deployment Successful"    
+        }
+    }
+}
